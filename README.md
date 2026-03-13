@@ -126,7 +126,7 @@ If these environment variables are present, the repair path uses them first:
 
 ```bash
 export AUTO_HEAL_API_KEY="your-key"
-export AUTO_HEAL_API_ENDPOINT="https://code.newcli.com/claude/droid/v1/messages"
+export AUTO_HEAL_API_ENDPOINT="https://your-api-endpoint.example/v1/messages"
 export AUTO_HEAL_MODEL="claude-sonnet-4-5"
 export AUTO_HEAL_PROVIDER="external"
 ```
@@ -163,7 +163,7 @@ The installer will:
 
 ```bash
 export AUTO_HEAL_API_KEY="your-key"
-export AUTO_HEAL_API_ENDPOINT="https://code.newcli.com/claude/droid/v1/messages"
+export AUTO_HEAL_API_ENDPOINT="https://your-api-endpoint.example/v1/messages"
 export AUTO_HEAL_MODEL="claude-sonnet-4-5"
 export AUTO_HEAL_PROVIDER="external"
 ```
