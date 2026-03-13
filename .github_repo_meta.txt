@@ -1,0 +1,3 @@
+Repo name: openclaw-auto-heal
+Description: Self-healing runtime protection for OpenClaw Gateway with doctor-first recovery and AI fallback.
+Topics: openclaw, self-healing, devops, aiops, automation, launchd, macos, reliability

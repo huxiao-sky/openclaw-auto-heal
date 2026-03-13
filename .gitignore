@@ -1,0 +1,31 @@
+# macOS
+.DS_Store
+
+# Logs
+logs/
+*.log
+*.log.old
+*.gz
+
+# Temp files
+/tmp/
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+
+# Shell check / local outputs
+*.out
+*.err
+
+# IDE
+.vscode/
+.idea/
+
+# Local env
+.env
+.env.*
