@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  shell-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required files
+        run: |
+          test -f README.md
+          test -f README.zh-CN.md
+          test -f scripts/auto-heal-ai.sh
+          test -f scripts/health-check.sh
+          test -f install.sh
+
+      - name: Bash syntax check
+        run: |
+          bash -n scripts/auto-heal-ai.sh
+          bash -n scripts/health-check.sh
+          bash -n install.sh
+          bash -n bootstrap.sh
+
+      - name: Verify docs exist
+        run: |
+          test -f docs/architecture.md
+          test -f docs/security.md
