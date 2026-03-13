@@ -48,6 +48,33 @@ The goal is not blind automation. The goal is **practical recovery with guardrai
 - optional config diff output before restart
 - installer script for quick local setup
 
+## Supported Platform
+
+### Supported now
+
+- **macOS**
+- **OpenClaw Gateway** environments using `launchd`
+
+### Not officially supported yet
+
+- Linux
+- Windows
+- non-`launchd` service managers
+- multi-node or clustered deployments
+
+This project is currently **macOS-first by design**.
+
+## Prerequisites
+
+Before installing, make sure you already have:
+
+- OpenClaw installed and available in PATH
+- `python3`
+- `curl`
+- `jq`
+- `launchctl`
+- a valid OpenClaw configuration or standalone AI repair credentials
+
 ## Repository Layout
 
 ```text
@@ -145,9 +172,7 @@ export AUTO_HEAL_API_VERSION_VALUE="2023-06-01"
 
 If standalone repair credentials are not set, the script falls back to OpenClaw model settings.
 
-## Quick Start
-
-### Install
+## Installation
 
 ```bash
 chmod +x install.sh bootstrap.sh
@@ -171,11 +196,21 @@ export AUTO_HEAL_MODEL="your-model-name"
 export AUTO_HEAL_PROVIDER="external"
 ```
 
-### Manual checks
+## Verify Installation
+
+After installation, you can verify the setup with:
 
 ```bash
+launchctl list | grep openclaw
 bash ~/.openclaw/scripts/health-check.sh
-bash ~/.openclaw/scripts/auto-heal-ai.sh
+DRY_RUN=1 bash ~/.openclaw/scripts/auto-heal-ai.sh
+```
+
+You can also inspect logs:
+
+```bash
+tail -50 ~/.openclaw/logs/healthcheck.log
+tail -50 ~/.openclaw/logs/auto-heal.log
 ```
 
 ## Dry Run and Diff
@@ -199,6 +234,21 @@ Dry run will:
 ```bash
 SHOW_DIFF=1 bash ~/.openclaw/scripts/auto-heal-ai.sh
 ```
+
+## Uninstall
+
+To remove the installed agents and scripts manually:
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.openclaw.gateway.plist || true
+launchctl unload ~/Library/LaunchAgents/com.openclaw.healthcheck.plist || true
+rm -f ~/Library/LaunchAgents/com.openclaw.gateway.plist
+rm -f ~/Library/LaunchAgents/com.openclaw.healthcheck.plist
+rm -f ~/.openclaw/scripts/auto-heal-ai.sh
+rm -f ~/.openclaw/scripts/health-check.sh
+```
+
+Logs and safe backups are intentionally left in place unless you delete them yourself.
 
 ## Security
 

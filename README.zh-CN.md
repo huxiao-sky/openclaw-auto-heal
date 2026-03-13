@@ -20,6 +20,33 @@
 - 支持修复前后 diff 输出
 - 提供 `install.sh` 一键安装脚本
 
+## 支持平台
+
+### 当前支持
+
+- **macOS**
+- 使用 `launchd` 的 OpenClaw Gateway 运行环境
+
+### 暂未正式支持
+
+- Linux
+- Windows
+- 非 `launchd` 服务管理环境
+- 多节点或集群部署
+
+当前版本是一个**明确的 macOS-first 项目**。
+
+## 前置条件
+
+安装前建议确认：
+
+- 已安装 OpenClaw，且命令在 PATH 中可用
+- 已安装 `python3`
+- 已安装 `curl`
+- 已安装 `jq`
+- 系统可用 `launchctl`
+- 已有可用的 OpenClaw 配置，或已准备独立 AI 修复配置
+
 ## 仓库结构
 
 ```text
@@ -32,6 +59,7 @@ openclaw-auto-heal/
 ├── install.sh
 ├── docs/
 │   ├── architecture.md
+│   ├── architecture-diagram.md
 │   └── security.md
 ├── launchd/
 │   ├── com.openclaw.gateway.plist
@@ -60,7 +88,7 @@ openclaw-auto-heal/
 ```bash
 export AUTO_HEAL_API_KEY="your-key"
 export AUTO_HEAL_API_ENDPOINT="https://your-api-endpoint.example/v1/messages"
-export AUTO_HEAL_MODEL="claude-sonnet-4-5"
+export AUTO_HEAL_MODEL="your-model-name"
 export AUTO_HEAL_PROVIDER="external"
 ```
 
@@ -68,11 +96,34 @@ export AUTO_HEAL_PROVIDER="external"
 
 如果没有独立配置，则回退到 OpenClaw 的模型配置。
 
-## 快速开始
+## 安装
 
 ```bash
 chmod +x install.sh bootstrap.sh
 ./install.sh
+```
+
+安装脚本会自动：
+
+- 拷贝脚本到 `~/.openclaw/scripts/`
+- 初始化日志目录
+- 尝试创建安全备份
+- 自动替换 `launchd` 模板里的用户名
+- 加载 LaunchAgents
+
+## 安装后验证
+
+```bash
+launchctl list | grep openclaw
+bash ~/.openclaw/scripts/health-check.sh
+DRY_RUN=1 bash ~/.openclaw/scripts/auto-heal-ai.sh
+```
+
+也可以查看日志：
+
+```bash
+tail -50 ~/.openclaw/logs/healthcheck.log
+tail -50 ~/.openclaw/logs/auto-heal.log
 ```
 
 ## Dry Run
@@ -81,9 +132,23 @@ chmod +x install.sh bootstrap.sh
 DRY_RUN=1 bash ~/.openclaw/scripts/auto-heal-ai.sh
 ```
 
+## 卸载
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.openclaw.gateway.plist || true
+launchctl unload ~/Library/LaunchAgents/com.openclaw.healthcheck.plist || true
+rm -f ~/Library/LaunchAgents/com.openclaw.gateway.plist
+rm -f ~/Library/LaunchAgents/com.openclaw.healthcheck.plist
+rm -f ~/.openclaw/scripts/auto-heal-ai.sh
+rm -f ~/.openclaw/scripts/health-check.sh
+```
+
+日志和安全备份默认不会删除，避免误删排障数据。
+
 ## 文档
 
 - 架构说明：[`docs/architecture.md`](./docs/architecture.md)
+- 架构图：[`docs/architecture-diagram.md`](./docs/architecture-diagram.md)
 - 安全说明：[`docs/security.md`](./docs/security.md)
 
 ## 当前状态
