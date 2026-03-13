@@ -146,6 +146,12 @@ See also:
 - [`docs/architecture.md`](./docs/architecture.md)
 - [`docs/architecture-diagram.md`](./docs/architecture-diagram.md)
 
+### Recovery flow at a glance
+
+```text
+launchd -> health-check.sh -> safe backup restore / doctor --fix / AI fallback -> verify -> recover
+```
+
 ## AI Configuration
 
 The project supports two modes.
