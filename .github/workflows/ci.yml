@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  shell-check:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,6 +18,8 @@ jobs:
           test -f scripts/auto-heal-ai.sh
           test -f scripts/health-check.sh
           test -f install.sh
+          test -f docs/architecture.md
+          test -f docs/security.md
 
       - name: Bash syntax check
         run: |
@@ -26,7 +28,12 @@ jobs:
           bash -n install.sh
           bash -n bootstrap.sh
 
-      - name: Verify docs exist
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Run shellcheck
         run: |
-          test -f docs/architecture.md
-          test -f docs/security.md
+          shellcheck scripts/auto-heal-ai.sh
+          shellcheck scripts/health-check.sh
+          shellcheck install.sh
+          shellcheck bootstrap.sh
