@@ -1,21 +1,20 @@
 #!/bin/bash
-# OpenClaw Gateway AI 自动修复脚本 v3.4
+# OpenClaw Gateway AI 自动修复脚本 v3.5
 #
 # 功能:
 # 1. 检测配置错误并调用 AI 生成修复脚本
 # 2. JSON 完全损坏时直接从安全备份恢复
 # 3. 独立安全备份机制,防止配置丢失
 #
-# v3.4 改进:
+# v3.5 改进:
+# - 不再内置具体 API endpoint 默认值
 # - 支持独立 AI 配置优先，OpenClaw 配置兜底
-# - 统一 AI 请求构建逻辑
-# - 增强修复脚本安全检查，限制修改范围到目标配置文件
+# - 优先官方 doctor 修复，再进入 AI fallback
 
 set -euo pipefail
 
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
-# ========== 配置文件路径 ==========
 LOG_FILE="$HOME/.openclaw/logs/auto-heal.log"
 CONFIG_FILE="$HOME/.openclaw/openclaw.json"
 BACKUP_FILE="$HOME/.openclaw/logs/openclaw.json.broken"
@@ -26,8 +25,8 @@ SAFE_BACKUP="$HOME/.openclaw/logs/openclaw.json.safe-backup"
 MAX_RETRIES="${MAX_RETRIES:-3}"
 RETRY_WINDOW="${RETRY_WINDOW:-3600}"
 LOG_ROTATE_SIZE="${LOG_ROTATE_SIZE:-10485760}"
-DEFAULT_API_ENDPOINT="${DEFAULT_API_ENDPOINT:-https://code.newcli.com/claude/droid/v1/messages}"
-DEFAULT_MODEL="${DEFAULT_MODEL:-claude-sonnet-4-5}"
+DEFAULT_API_ENDPOINT="${DEFAULT_API_ENDPOINT:-}"
+DEFAULT_MODEL="${DEFAULT_MODEL:-}"
 DEFAULT_CHANNEL="${DEFAULT_CHANNEL:-feishu}"
 DEFAULT_MAX_TOKENS="${DEFAULT_MAX_TOKENS:-4096}"
 DEFAULT_API_HEADER_KEY="${DEFAULT_API_HEADER_KEY:-x-api-key}"
@@ -43,7 +42,6 @@ ENABLE_DOCTOR_FIX="${ENABLE_DOCTOR_FIX:-1}"
 DRY_RUN="${DRY_RUN:-0}"
 SHOW_DIFF="${SHOW_DIFF:-1}"
 
-# ========== 工具发现 ==========
 find_cmd() {
     local name="$1"
     shift || true
@@ -92,7 +90,6 @@ require_cmd mkdir "$MKDIR_BIN"
 require_cmd cat "$CAT_BIN"
 require_cmd grep "$GREP_BIN"
 
-# ========== 公共函数 ==========
 ensure_parent_dirs() {
     "$MKDIR_BIN" -p "$(dirname "$LOG_FILE")"
 }
@@ -171,7 +168,7 @@ detect_model_config_from_openclaw() {
         MODEL="$DEFAULT_MODEL"
     fi
 
-    [ -n "$API_KEY" ] && [ "$API_KEY" != "null" ]
+    [ -n "$API_KEY" ] && [ "$API_KEY" != "null" ] && [ -n "$API_ENDPOINT" ] && [ -n "$MODEL" ]
 }
 
 detect_model_config_from_env() {
@@ -189,7 +186,7 @@ detect_model_config_from_env() {
     API_VERSION_VALUE="${AUTO_HEAL_API_VERSION_VALUE:-$DEFAULT_API_VERSION_VALUE}"
     AI_CONFIG_SOURCE="env"
 
-    [ -n "$API_HEADER_VALUE" ]
+    [ -n "$API_HEADER_VALUE" ] && [ -n "$API_ENDPOINT" ] && [ -n "$MODEL" ]
 }
 
 detect_model_config() {
@@ -371,7 +368,6 @@ PY
 ensure_parent_dirs
 rotate_log_if_needed "$LOG_FILE"
 
-# ========== 并发保护 ==========
 if [ -f "$LOCK_FILE" ]; then
     LOCK_PID="$(cat "$LOCK_FILE" 2>/dev/null || true)"
     if [ -n "$LOCK_PID" ] && ps -p "$LOCK_PID" > /dev/null 2>&1; then
@@ -384,7 +380,6 @@ trap 'rm -f "$LOCK_FILE"' EXIT
 
 log "========== AI 自动修复开始 =========="
 
-# ========== 安全备份机制 ==========
 if [ ! -f "$SAFE_BACKUP" ]; then
     log "首次运行,创建安全备份..."
 
@@ -413,7 +408,6 @@ if [ ! -f "$SAFE_BACKUP" ]; then
     fi
 fi
 
-# ========== 重试次数检查(时间窗口重置) ==========
 if [ -f "$RETRY_COUNT_FILE" ]; then
     LAST_RETRY_TIME="$("$STAT_BIN" -f %m "$RETRY_COUNT_FILE" 2>/dev/null || echo 0)"
     CURRENT_TIME="$(date +%s)"
@@ -457,7 +451,6 @@ fi
 log "第 $RETRY_COUNT 次修复尝试（最多 $MAX_RETRIES 次）"
 cp "$CONFIG_FILE" "$BACKUP_FILE"
 
-# ========== JSON 格式检查 ==========
 log "检查 JSON 格式..."
 
 if ! json_valid "$CONFIG_FILE"; then
@@ -468,25 +461,21 @@ fi
 
 log "✓ JSON 格式正常,继续修复流程"
 
-# ========== 官方 doctor 修复链路 ==========
 if doctor_fix; then
     exit 0
 fi
 
-# ========== 模型配置提取 ==========
 log "检测 AI 配置..."
 if ! detect_model_config "$SAFE_BACKUP"; then
-    log "✗ 无法获取可用的 AI 配置（环境变量和 OpenClaw 配置都不可用）"
+    log "✗ 无法获取可用的 AI 配置。请设置独立 AI 环境变量，或确保 OpenClaw 配置中已包含 provider / endpoint / model / apiKey"
     exit 1
 fi
 log "✓ AI 配置检测成功 (source=$AI_CONFIG_SOURCE, provider=$PROVIDER, model=$MODEL)"
 
-# ========== 收集错误信息 ==========
 log "收集配置错误信息..."
 VALIDATION_ERROR="$(validate_config 2>&1 || true)"
 log "✓ 错误信息已收集"
 
-# ========== 构建 AI 提示 ==========
 PROMPT=$(cat <<PROMPTEND | "$JQ_BIN" -Rs .
 你是 OpenClaw 配置修复专家。
 
@@ -506,10 +495,6 @@ config_path = Path("$CONFIG_FILE").expanduser()
 with open(config_path) as f:
     config = json.load(f)
 
-# 根据错误修复配置
-# 例如: null 值改为空字符串
-# 例如: 删除未识别的字段
-
 with open(config_path, 'w') as f:
     json.dump(config, f, indent=2)
 
@@ -518,7 +503,6 @@ print("✓ 配置已修复")
 PROMPTEND
 )
 
-# ========== 调用 AI API ==========
 log "调用 AI 生成修复脚本..."
 REQUEST_BODY="$(build_ai_request_body)"
 RESPONSE_FILE="/tmp/auto-heal-response-$$.json"
@@ -551,7 +535,6 @@ fi
 
 log "✓ AI 响应成功"
 
-# ========== 提取并执行修复脚本 ==========
 FIX_SCRIPT="/tmp/fix-$$.py"
 AI_FULL_TEXT="/tmp/ai-full-$$.txt"
 printf '%s' "$RESPONSE_TEXT" > "$AI_FULL_TEXT"
@@ -563,7 +546,6 @@ if [ ! -s "$FIX_SCRIPT" ]; then
     exit 1
 fi
 
-# ========== 安全检查 ==========
 if ! validate_fix_script_security "$FIX_SCRIPT" >> "$LOG_FILE" 2>&1; then
     log "✗ 修复脚本未通过安全检查，拒绝执行"
     "$CAT_BIN" "$FIX_SCRIPT" >> "$LOG_FILE"
@@ -573,9 +555,7 @@ if ! validate_fix_script_security "$FIX_SCRIPT" >> "$LOG_FILE" 2>&1; then
 fi
 log "✓ 代码安全检查通过"
 
-# ========== 执行修复 ==========
 log "执行 AI 生成的修复脚本..."
-
 if "$PYTHON_BIN" "$FIX_SCRIPT" >> "$LOG_FILE" 2>&1; then
     log "✓ 修复脚本执行成功"
 else
@@ -594,12 +574,9 @@ fi
 
 show_config_diff
 
-# ========== 验证并更新备份 ==========
 log "验证修复后的配置..."
-
 if validate_config >> "$LOG_FILE" 2>&1; then
     log "✓ 配置验证通过"
-
     cp "$CONFIG_FILE" "$SAFE_BACKUP.tmp"
     if json_valid "$SAFE_BACKUP.tmp"; then
         mv "$SAFE_BACKUP.tmp" "$SAFE_BACKUP"
@@ -614,7 +591,6 @@ else
     exit 1
 fi
 
-# ========== 重启并验证 ==========
 log "重启 Gateway..."
 gateway_restart
 sleep 5

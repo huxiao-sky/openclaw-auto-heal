@@ -60,6 +60,7 @@ openclaw-auto-heal/
 ├── install.sh
 ├── docs/
 │   ├── architecture.md
+│   ├── architecture-diagram.md
 │   └── security.md
 ├── launchd/
 │   ├── com.openclaw.gateway.plist
@@ -114,7 +115,9 @@ The system works in four layers:
 - updates safe backup
 - restarts and verifies Gateway
 
-See also: [`docs/architecture.md`](./docs/architecture.md)
+See also:
+- [`docs/architecture.md`](./docs/architecture.md)
+- [`docs/architecture-diagram.md`](./docs/architecture-diagram.md)
 
 ## AI Configuration
 
@@ -127,7 +130,7 @@ If these environment variables are present, the repair path uses them first:
 ```bash
 export AUTO_HEAL_API_KEY="your-key"
 export AUTO_HEAL_API_ENDPOINT="https://your-api-endpoint.example/v1/messages"
-export AUTO_HEAL_MODEL="claude-sonnet-4-5"
+export AUTO_HEAL_MODEL="your-model-name"
 export AUTO_HEAL_PROVIDER="external"
 ```
 
@@ -164,7 +167,7 @@ The installer will:
 ```bash
 export AUTO_HEAL_API_KEY="your-key"
 export AUTO_HEAL_API_ENDPOINT="https://your-api-endpoint.example/v1/messages"
-export AUTO_HEAL_MODEL="claude-sonnet-4-5"
+export AUTO_HEAL_MODEL="your-model-name"
 export AUTO_HEAL_PROVIDER="external"
 ```
 
